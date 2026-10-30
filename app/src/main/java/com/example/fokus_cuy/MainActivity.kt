@@ -4,44 +4,32 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.activity.viewModels
+import com.example.fokus_cuy.data.local.AppDatabase
+import com.example.fokus_cuy.data.repository.TaskRepositoryImpl
+import com.example.fokus_cuy.ui.tasks.TaskScreen
+import com.example.fokus_cuy.ui.tasks.TaskViewModel
 import com.example.fokus_cuy.ui.theme.FokusCuyTheme
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Inisialisasi SQLite Room Database & Repository
+        val database = AppDatabase.getInstance(applicationContext)
+        val repository = TaskRepositoryImpl(database.taskDao())
+
+        // Inisialisasi ViewModel dengan Factory
+        val viewModel: TaskViewModel by viewModels {
+            TaskViewModel.provideFactory(repository)
+        }
+
         setContent {
             FokusCuyTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                TaskScreen(viewModel = viewModel)
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    FokusCuyTheme {
-        Greeting("Android")
     }
 }
