@@ -5,6 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.*
+import kotlinx.coroutines.delay
 import com.example.fokus_cuy.data.local.AppDatabase
 import com.example.fokus_cuy.data.repository.TaskRepositoryImpl
 import com.example.fokus_cuy.ui.tasks.TaskScreen
@@ -17,19 +19,36 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Inisialisasi SQLite Room Database & Repository
+        // Inisialisasi SQLite Room Database & Repository buatan teman Anda
         val database = AppDatabase.getInstance(applicationContext)
         val repository = TaskRepositoryImpl(database.taskDao())
 
-        // Inisialisasi ViewModel dengan Factory
+        // Inisialisasi ViewModel dengan Factory buatan teman Anda
         val viewModel: TaskViewModel by viewModels {
             TaskViewModel.provideFactory(repository)
         }
 
         setContent {
             FokusCuyTheme {
-                TaskScreen(viewModel = viewModel)
+                AppEntry() // Memanggil UI baru Anda
+                // TaskScreen(viewModel = viewModel) // Kode UI lama teman Anda di-comment dulu
             }
         }
+    }
+}
+
+@Composable
+fun AppEntry() {
+    var showSplash by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        delay(2000) // Tampilkan splash screen selama 2 detik
+        showSplash = false
+    }
+
+    if (showSplash) {
+        SplashScreen() // Memanggil dari file SplashScreen.kt
+    } else {
+        HomeScreen()   // Memanggil dari file HomeScreen.kt
     }
 }
