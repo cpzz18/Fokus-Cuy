@@ -2,6 +2,8 @@ package com.example.fokus_cuy
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
+import com.example.fokus_cuy.BuildConfig
 import com.example.fokus_cuy.data.local.AppDatabase
 import com.example.fokus_cuy.data.repository.DistractionRepositoryImpl
 import com.example.fokus_cuy.data.repository.FocusSessionRepositoryImpl
@@ -54,7 +56,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
 }
 
 class FokusCuyApplication : Application() {
-    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     lateinit var container: AppContainer
         private set
@@ -64,16 +66,20 @@ class FokusCuyApplication : Application() {
         val appContainer = DefaultAppContainer(this)
         container = appContainer
 
-        // Bootstrap data awal (guest user & debug seed)
+        // Bootstrap data awal (guest user & debug seed) dengan penanganan error aman
         applicationScope.launch {
-            val user = appContainer.userRepository.ensureLocalGuestUser()
-            if (BuildConfig.DEBUG) {
-                DebugDatabaseSeeder.seedIfEmpty(
-                    userId = user.id,
-                    taskRepository = appContainer.taskRepository,
-                    focusSessionRepository = appContainer.focusSessionRepository,
-                    clock = appContainer.clock
-                )
+            runCatching {
+                val user = appContainer.userRepository.ensureLocalGuestUser()
+                if (BuildConfig.DEBUG) {
+                    DebugDatabaseSeeder.seedIfEmpty(
+                        userId = user.id,
+                        taskRepository = appContainer.taskRepository,
+                        focusSessionRepository = appContainer.focusSessionRepository,
+                        clock = appContainer.clock
+                    )
+                }
+            }.onFailure { error ->
+                Log.e("FokusCuyApplication", "Gagal melakukan bootstrap data awal database", error)
             }
         }
     }
