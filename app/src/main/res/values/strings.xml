@@ -1,3 +1,31 @@
 <resources>
-    <string name="app_name">Fokus-Cuy</string>
+    <string name="app_name">Fokus Cuy</string>
+    <string name="tagline">Plan Less. Focus Better.</string>
+    <string name="splash_footer">Mulai langkah kecilmu hari ini.</string>
+
+    <!-- Navigation Tabs -->
+    <string name="tab_today">Hari Ini</string>
+    <string name="tab_matrix">Matriks</string>
+    <string name="tab_focus">Fokus</string>
+    <string name="tab_stats">Statistik</string>
+
+    <!-- Home Actions -->
+    <string name="new_task">Tugas Baru</string>
+    <string name="add_task">+ Tambah</string>
+    <string name="streak_badge">%d Hari</string>
+    <string name="dopamine_title">SUNTIKAN DOPAMIN HARI INI</string>
+    <string name="progress_title">Progres Fokus Hari Ini</string>
+    <string name="main_focus_title">Fokus Utama Hari Ini</string>
+    <string name="priority_q1">Prioritas Q1</string>
+    <string name="q1_badge">Q1: Sikat Sekarang!</string>
+    <string name="ai_pdf_badge">AI PDF</string>
+    <string name="next_step_label">Langkah berikutnya: </string>
+
+    <string-array name="dopamine_quotes">
+        <item>Tugas tebal itu cuma kumpulan tugas-tugas kecil yang lagi ngumpul. Pecah dulu, sikat satu-satu!</item>
+        <item>Gak perlu sempurna, yang penting mulai. Lima menit pertama itu yang paling berat.</item>
+        <item>Satu langkah kecil hari ini lebih berarti daripada rencana besar yang cuma dipikirin.</item>
+        <item>Istirahat itu bagian dari proses, bukan hadiah setelah semuanya selesai.</item>
+        <item>Progres kecil yang konsisten ngalahin semangat besar yang cuma sebentar.</item>
+    </string-array>
 </resources>

@@ -1,4 +1,4 @@
-package com.example.fokus_cuy
+package com.example.fokus_cuy.feature.splash
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -32,17 +32,25 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.fokus_cuy.R
+import com.example.fokus_cuy.core.designsystem.icon.FokusLogoIcon
+import com.example.fokus_cuy.core.designsystem.theme.SplashBg
+import com.example.fokus_cuy.core.designsystem.theme.SplashFooter
+import com.example.fokus_cuy.core.designsystem.theme.SplashMuted
+import com.example.fokus_cuy.core.designsystem.theme.SplashYellow
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-fun SplashScreen() {
-    // Tiap elemen punya "napas" sendiri supaya masuknya berjenjang, bukan serentak.
+fun SplashScreen(
+    modifier: Modifier = Modifier
+) {
     val logoAlpha = remember { Animatable(0f) }
     val logoScale = remember { Animatable(0.86f) }
     val wordmark = remember { Animatable(0f) }
@@ -63,17 +71,16 @@ fun SplashScreen() {
     }
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF0B0A09))
-            // Pendar hangat sangat tipis di belakang logo (bukan neon)
+            .background(SplashBg)
             .drawBehind {
                 val c = Offset(size.width / 2f, size.height / 2f - 24.dp.toPx())
                 val r = 260.dp.toPx()
                 drawCircle(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            Color(0xFFFFDE17).copy(alpha = 0.07f * logoAlpha.value),
+                            SplashYellow.copy(alpha = 0.07f * logoAlpha.value),
                             Color.Transparent
                         ),
                         center = c,
@@ -115,7 +122,7 @@ fun SplashScreen() {
                     text = "CUY",
                     fontSize = 26.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFFFFDE17),
+                    color = SplashYellow,
                     modifier = Modifier
                         .graphicsLayer {
                             alpha = wordmark.value
@@ -128,10 +135,10 @@ fun SplashScreen() {
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Plan Less. Focus Better.",
+                text = stringResource(R.string.tagline),
                 fontSize = 14.sp,
                 letterSpacing = 0.4.sp,
-                color = Color(0xFFB0AAA0),
+                color = SplashMuted,
                 modifier = Modifier.graphicsLayer {
                     alpha = tagline.value
                     translationY = (1f - tagline.value) * 6.dp.toPx()
@@ -141,16 +148,16 @@ fun SplashScreen() {
             Spacer(modifier = Modifier.height(36.dp))
 
             PulseDots(
-                color = Color(0xFFFFDE17),
+                color = SplashYellow,
                 modifier = Modifier.graphicsLayer { alpha = tagline.value }
             )
         }
 
         Text(
-            text = "Mulai langkah kecilmu hari ini.",
+            text = stringResource(R.string.splash_footer),
             fontSize = 12.sp,
             letterSpacing = 0.2.sp,
-            color = Color(0xFF888279),
+            color = SplashFooter,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 36.dp)
@@ -159,7 +166,6 @@ fun SplashScreen() {
     }
 }
 
-/** Indikator loading: tiga titik yang berdenyut bergelombang, lebih tenang daripada spinner. */
 @Composable
 private fun PulseDots(color: Color, modifier: Modifier = Modifier) {
     val phase = rememberInfiniteTransition(label = "dots").animateFloat(
@@ -180,7 +186,7 @@ private fun PulseDots(color: Color, modifier: Modifier = Modifier) {
                     .size(6.dp)
                     .graphicsLayer {
                         val p = (phase.value + i * 0.16f) % 1f
-                        val wave = 0.5f - 0.5f * cos(2f * PI.toFloat() * p) // 0..1
+                        val wave = 0.5f - 0.5f * cos(2f * PI.toFloat() * p)
                         val s = 0.7f + 0.5f * wave
                         scaleX = s
                         scaleY = s
