@@ -59,7 +59,7 @@ import com.example.fokus_cuy.navigation.AppDestination
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
-    viewModel: HomeViewModel = viewModel()
+    viewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var currentDestination by remember { mutableStateOf(AppDestination.TODAY) }

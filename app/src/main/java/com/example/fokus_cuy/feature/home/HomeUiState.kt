@@ -7,23 +7,17 @@ import kotlin.math.roundToInt
 @Immutable
 data class WeekDay(
     val dayName: String,
-    val dateNum: String
+    val dateNum: String,
+    val dateString: String = "" // yyyy-MM-dd
 )
 
 @Immutable
 data class HomeUiState(
-    val userName: String = "Dimas",
-    val streakDays: Int = 5,
-    val weekDays: List<WeekDay> = listOf(
-        WeekDay("Sen", "14"),
-        WeekDay("Sel", "15"),
-        WeekDay("Rab", "16"),
-        WeekDay("Kam", "17"),
-        WeekDay("Jum", "18"),
-        WeekDay("Sab", "19"),
-        WeekDay("Min", "20")
-    ),
-    val selectedDayIndex: Int = 6,
+    val userName: String = "Sobat Fokus",
+    val streakDays: Int = 0,
+    val weekDays: List<WeekDay> = emptyList(),
+    val selectedDayIndex: Int = 0,
+    val selectedDate: String = "",
     val quotes: List<String> = listOf(
         "Tugas tebal itu cuma kumpulan tugas-tugas kecil yang lagi ngumpul. Pecah dulu, sikat satu-satu!",
         "Gak perlu sempurna, yang penting mulai. Lima menit pertama itu yang paling berat.",
@@ -32,12 +26,14 @@ data class HomeUiState(
         "Progres kecil yang konsisten ngalahin semangat besar yang cuma sebentar."
     ),
     val quoteIndex: Int = 0,
-    val progress: Float = 0.38f,
-    val completedSteps: Int = 3,
-    val totalSteps: Int = 8,
+    val progress: Float = 0f,
+    val completedSteps: Int = 0,
+    val totalSteps: Int = 0,
+    val mainTaskId: String? = null,
+    val mainTaskTitle: String = "Belum ada tugas hari ini",
+    val mainTaskNextStep: String = "Tekan + untuk membuat tugas baru",
     val isMainTaskChecked: Boolean = false,
-    val mainTaskTitle: String = "Laporan Akhir Praktikum\nBasis Data",
-    val mainTaskNextStep: String = "Tulis query SQL",
+    val mainTaskFirstIncompleteSubtaskId: String? = null,
     val currentHour: Int = LocalTime.now().hour
 ) {
     val currentQuote: String
