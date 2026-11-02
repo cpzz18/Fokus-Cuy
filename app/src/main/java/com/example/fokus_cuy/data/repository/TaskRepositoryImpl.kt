@@ -38,6 +38,10 @@ class TaskRepositoryImpl(
         return taskDao.observeTaskById(taskId).map { it?.toDomainModel() }
     }
 
+    override suspend fun hasAnyTask(userId: String): Boolean {
+        return taskDao.hasAnyTask(userId)
+    }
+
     override suspend fun upsertTask(task: Task) {
         database.withTransaction {
             val now = clock.millis()
@@ -45,15 +49,18 @@ class TaskRepositoryImpl(
             val taskEntity = targetTask.toEntity().copy(updatedAt = now)
             taskDao.upsertTask(taskEntity)
 
-            targetTask.subtasks.forEachIndexed { index, subtask ->
-                val subtaskId = if (subtask.id.isBlank()) idGenerator() else subtask.id
-                val subtaskEntity = subtask.toEntity().copy(
-                    id = subtaskId,
-                    taskId = targetTask.id,
-                    orderIndex = index,
-                    updatedAt = now
-                )
-                subtaskDao.upsertSubtask(subtaskEntity)
+            if (targetTask.subtasks.isNotEmpty()) {
+                val subtaskEntities = targetTask.subtasks.mapIndexed { index, subtask ->
+                    val subtaskId = if (subtask.id.isBlank()) idGenerator() else subtask.id
+                    subtask.toEntity().copy(
+                        id = subtaskId,
+                        taskId = targetTask.id,
+                        orderIndex = index,
+                        updatedAt = now
+                    )
+                }
+                subtaskDao.upsertSubtasks(subtaskEntities)
+                taskDao.syncTaskCompletionFromSubtasks(targetTask.id, now)
             }
         }
     }
@@ -62,11 +69,18 @@ class TaskRepositoryImpl(
         database.withTransaction {
             val now = clock.millis()
             taskDao.softDeleteTask(taskId, deletedAt = now, updatedAt = now)
-            val subtasks = subtaskDao.getSubtasksByTaskId(taskId)
-            for (sub in subtasks) {
-                subtaskDao.softDeleteSubtask(sub.id, deletedAt = now, updatedAt = now)
-            }
+            subtaskDao.softDeleteSubtasksByTaskId(taskId, deletedAt = now, updatedAt = now)
         }
+    }
+
+    override suspend fun toggleTaskCompletion(taskId: String, isCompleted: Boolean) {
+        val now = clock.millis()
+        taskDao.updateTaskCompletion(
+            taskId = taskId,
+            isCompleted = isCompleted,
+            completedAt = if (isCompleted) now else null,
+            updatedAt = now
+        )
     }
 
     override suspend fun toggleSubtask(subtaskId: String, isCompleted: Boolean) {
@@ -80,8 +94,8 @@ class TaskRepositoryImpl(
                 updatedAt = now
             )
 
-            // Sinkronisasi otomatis status penyelesaian task induk (F5)
-            recalculateParentTaskCompletion(subtask.taskId, now)
+            // Sinkronisasi atomik single-query EXISTS/NOT EXISTS (F5 & Q3)
+            taskDao.syncTaskCompletionFromSubtasks(subtask.taskId, now)
         }
     }
 
@@ -90,7 +104,7 @@ class TaskRepositoryImpl(
             val now = clock.millis()
             val targetSubtask = if (subtask.id.isBlank()) subtask.copy(id = idGenerator()) else subtask
             subtaskDao.upsertSubtask(targetSubtask.toEntity().copy(updatedAt = now))
-            recalculateParentTaskCompletion(targetSubtask.taskId, now)
+            taskDao.syncTaskCompletionFromSubtasks(targetSubtask.taskId, now)
         }
     }
 
@@ -99,19 +113,7 @@ class TaskRepositoryImpl(
             val subtask = subtaskDao.getSubtaskById(subtaskId) ?: return@withTransaction
             val now = clock.millis()
             subtaskDao.softDeleteSubtask(subtaskId, deletedAt = now, updatedAt = now)
-            recalculateParentTaskCompletion(subtask.taskId, now)
+            taskDao.syncTaskCompletionFromSubtasks(subtask.taskId, now)
         }
-    }
-
-    private suspend fun recalculateParentTaskCompletion(taskId: String, now: Long) {
-        val total = subtaskDao.countTotalSubtasks(taskId)
-        val open = subtaskDao.countOpenSubtasks(taskId)
-        val isCompleted = total > 0 && open == 0
-        taskDao.updateTaskCompletion(
-            taskId = taskId,
-            isCompleted = isCompleted,
-            completedAt = if (isCompleted) now else null,
-            updatedAt = now
-        )
     }
 }

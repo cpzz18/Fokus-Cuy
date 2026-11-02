@@ -4,6 +4,7 @@ import com.example.fokus_cuy.domain.model.FocusSession
 import com.example.fokus_cuy.domain.model.Quadrant
 import com.example.fokus_cuy.domain.model.Subtask
 import com.example.fokus_cuy.domain.model.Task
+import com.example.fokus_cuy.domain.model.TaskSource
 import com.example.fokus_cuy.domain.model.User
 import com.example.fokus_cuy.domain.repository.FocusSessionRepository
 import com.example.fokus_cuy.domain.repository.TaskRepository
@@ -14,8 +15,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -80,6 +81,7 @@ class HomeViewModelTest {
         assertEquals(7, state.weekDays.size)
         assertEquals(0, state.quoteIndex)
         assertTrue(state.currentQuote.isNotBlank())
+        assertTrue(state.weekDays.first().isToday) // 2026-11-02 is Monday
     }
 
     @Test
@@ -115,7 +117,7 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `task with subtasks updates progress and main task on toggle`() = runTest {
+    fun `task with subtasks updates progress and main task metadata on toggle`() = runTest {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.uiState.collect()
         }
@@ -123,19 +125,27 @@ class HomeViewModelTest {
             id = "t1",
             userId = "user_1",
             title = "Tugas Penting",
+            quadrant = Quadrant.Q1,
+            source = TaskSource.AI_PDF,
             scheduledDate = today.toString(),
             subtasks = listOf(
-                Subtask(id = "s1", taskId = "t1", title = "Step 1", isCompleted = false),
-                Subtask(id = "s2", taskId = "t1", title = "Step 2", isCompleted = false)
+                Subtask(id = "s1", taskId = "t1", title = "Step 1", pomodoroEstimate = 2, isCompleted = false),
+                Subtask(id = "s2", taskId = "t1", title = "Step 2", pomodoroEstimate = 3, isCompleted = false)
             )
         )
         fakeTaskRepo.upsertTask(task)
         advanceUntilIdle()
 
         var state = viewModel.uiState.value
+        assertTrue(state.hasMainTask)
         assertEquals("Tugas Penting", state.mainTaskTitle)
         assertEquals("Step 1", state.mainTaskNextStep)
         assertEquals(0f, state.progress)
+        assertEquals(0, state.mainTaskCompletedSteps)
+        assertEquals(2, state.mainTaskTotalSteps)
+        assertEquals(5, state.mainTaskPomodoroCount) // 2 + 3
+        assertEquals(TaskSource.AI_PDF, state.mainTaskSource)
+        assertEquals(Quadrant.Q1, state.mainTaskQuadrant)
         assertFalse(state.isMainTaskChecked)
 
         // Toggle first step
@@ -144,6 +154,7 @@ class HomeViewModelTest {
 
         state = viewModel.uiState.value
         assertEquals(0.5f, state.progress)
+        assertEquals(1, state.mainTaskCompletedSteps)
         assertEquals("Step 2", state.mainTaskNextStep)
 
         // Toggle second step
@@ -152,7 +163,52 @@ class HomeViewModelTest {
 
         state = viewModel.uiState.value
         assertEquals(1.0f, state.progress)
+        assertEquals(2, state.mainTaskCompletedSteps)
         assertTrue(state.isMainTaskChecked)
+        assertEquals("Semua langkah selesai!", state.mainTaskNextStep)
+
+        // Toggle again when fully completed -> unchecks last step
+        viewModel.toggleMainTask()
+        advanceUntilIdle()
+
+        state = viewModel.uiState.value
+        assertEquals(0.5f, state.progress)
+        assertFalse(state.isMainTaskChecked)
+    }
+
+    @Test
+    fun `standalone task without subtasks toggles completion properly`() = runTest {
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.uiState.collect()
+        }
+        val standalone = Task(
+            id = "t_simple",
+            userId = "user_1",
+            title = "Baca 1 Bab",
+            scheduledDate = today.toString(),
+            subtasks = emptyList()
+        )
+        fakeTaskRepo.upsertTask(standalone)
+        advanceUntilIdle()
+
+        var state = viewModel.uiState.value
+        assertTrue(state.hasMainTask)
+        assertEquals("Baca 1 Bab", state.mainTaskTitle)
+        assertFalse(state.isMainTaskChecked)
+
+        // Toggle to completed
+        viewModel.toggleMainTask()
+        advanceUntilIdle()
+
+        state = viewModel.uiState.value
+        assertTrue(state.isMainTaskChecked)
+
+        // Toggle back to incomplete
+        viewModel.toggleMainTask()
+        advanceUntilIdle()
+
+        state = viewModel.uiState.value
+        assertFalse(state.isMainTaskChecked)
     }
 
     @Test
@@ -198,6 +254,10 @@ class HomeViewModelTest {
             return tasksFlow.map { it[taskId] }
         }
 
+        override suspend fun hasAnyTask(userId: String): Boolean {
+            return tasksFlow.value.values.any { it.userId == userId && it.deletedAt == null }
+        }
+
         override suspend fun upsertTask(task: Task) {
             val current = tasksFlow.value.toMutableMap()
             current[task.id] = task
@@ -209,6 +269,15 @@ class HomeViewModelTest {
             val existing = current[taskId]
             if (existing != null) {
                 current[taskId] = existing.copy(deletedAt = System.currentTimeMillis())
+                tasksFlow.value = current
+            }
+        }
+
+        override suspend fun toggleTaskCompletion(taskId: String, isCompleted: Boolean) {
+            val current = tasksFlow.value.toMutableMap()
+            val existing = current[taskId]
+            if (existing != null) {
+                current[taskId] = existing.copy(isCompleted = isCompleted)
                 tasksFlow.value = current
             }
         }

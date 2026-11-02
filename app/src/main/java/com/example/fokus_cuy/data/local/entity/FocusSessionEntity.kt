@@ -29,7 +29,7 @@ import androidx.room.PrimaryKey
         )
     ],
     indices = [
-        Index(value = ["user_id", "started_at"]),
+        Index(value = ["user_id", "status", "started_at"]),
         Index(value = ["task_id"]),
         Index(value = ["subtask_id"])
     ]

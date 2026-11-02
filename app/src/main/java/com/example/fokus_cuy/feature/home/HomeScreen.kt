@@ -218,7 +218,13 @@ fun TodayContent(
                 isChecked = uiState.isMainTaskChecked,
                 title = uiState.mainTaskTitle,
                 nextStep = uiState.mainTaskNextStep,
-                onToggleCheck = onToggleMainTask
+                onToggleCheck = onToggleMainTask,
+                hasTask = uiState.hasMainTask,
+                completedSteps = uiState.mainTaskCompletedSteps,
+                totalSteps = uiState.mainTaskTotalSteps,
+                pomodoroCount = uiState.mainTaskPomodoroCount,
+                quadrant = uiState.mainTaskQuadrant,
+                source = uiState.mainTaskSource
             )
 
             Spacer(modifier = Modifier.height(Dimens.ContentBottomPadding))

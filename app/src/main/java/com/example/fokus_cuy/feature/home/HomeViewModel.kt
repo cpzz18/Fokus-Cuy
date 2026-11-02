@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.fokus_cuy.FokusCuyApplication
 import com.example.fokus_cuy.domain.StreakCalculator
 import com.example.fokus_cuy.domain.model.Quadrant
+import com.example.fokus_cuy.domain.model.TaskSource
 import com.example.fokus_cuy.domain.repository.FocusSessionRepository
 import com.example.fokus_cuy.domain.repository.TaskRepository
 import com.example.fokus_cuy.domain.repository.UserRepository
@@ -16,8 +17,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -52,7 +54,14 @@ class HomeViewModel(
                 DayOfWeek.SUNDAY -> "Min"
                 else -> ""
             }
-            days.add(WeekDay(dayName = name, dateNum = d.dayOfMonth.toString(), dateString = d.toString()))
+            days.add(
+                WeekDay(
+                    dayName = name,
+                    dateNum = d.dayOfMonth.toString(),
+                    dateString = d.toString(),
+                    isToday = (d == today)
+                )
+            )
         }
         days
     }
@@ -67,17 +76,16 @@ class HomeViewModel(
     private val quoteIndexFlow = MutableStateFlow(0)
 
     private val currentUserFlow = userRepository.observeCurrentUser()
+    private val userIdFlow = currentUserFlow.map { it?.id ?: DEFAULT_GUEST_ID }.distinctUntilChanged()
 
-    private val tasksForSelectedDateFlow = combine(currentUserFlow, selectedDayIndexFlow) { user, dayIndex ->
-        val userId = user?.id ?: "user_guest_local"
+    private val tasksForSelectedDateFlow = combine(userIdFlow, selectedDayIndexFlow) { userId, dayIndex ->
         val dateString = weekDaysList.getOrNull(dayIndex)?.dateString ?: today.toString()
         userId to dateString
-    }.flatMapLatest { (userId, dateString) ->
+    }.distinctUntilChanged().flatMapLatest { (userId, dateString) ->
         taskRepository.observeTasksByDate(userId, dateString)
     }
 
-    private val focusDaysFlow = currentUserFlow.flatMapLatest { user ->
-        val userId = user?.id ?: "user_guest_local"
+    private val focusDaysFlow = userIdFlow.flatMapLatest { userId ->
         focusSessionRepository.observeFocusDays(userId)
     }
 
@@ -111,17 +119,28 @@ class HomeViewModel(
             0f
         }
 
+        // Prioritas main task: Q1 belum selesai > Tugas apapun belum selesai > Tugas pertama
         val mainTask = tasks.firstOrNull { it.quadrant == Quadrant.Q1 && !it.isCompleted }
             ?: tasks.firstOrNull { !it.isCompleted }
             ?: tasks.firstOrNull()
 
+        val hasMainTask = mainTask != null
         val nextIncompleteSubtask = mainTask?.subtasks?.firstOrNull { !it.isCompleted }
+        val lastCompletedSubtask = mainTask?.subtasks?.lastOrNull { it.isCompleted }
+
         val mainTaskTitle = mainTask?.title ?: if (tasks.isEmpty()) "Belum ada tugas hari ini" else "Semua tugas tuntas!"
         val mainTaskNextStep = if (mainTask != null) {
             nextIncompleteSubtask?.title ?: if (mainTask.isCompleted) "Semua langkah selesai!" else "Langkah awal"
         } else {
             "Tekan + untuk membuat tugas baru"
         }
+
+        val mainTaskCompletedSteps = mainTask?.subtasks?.count { it.isCompleted }
+            ?: if (mainTask?.isCompleted == true) 1 else 0
+        val mainTaskTotalSteps = if ((mainTask?.subtasks?.size ?: 0) > 0) mainTask!!.subtasks.size
+            else if (hasMainTask) 1 else 0
+        val mainTaskPomodoroCount = mainTask?.subtasks?.sumOf { it.pomodoroEstimate }?.takeIf { it > 0 }
+            ?: if (hasMainTask) 1 else 0
 
         HomeUiState(
             userName = userName,
@@ -133,11 +152,18 @@ class HomeViewModel(
             progress = progress,
             completedSteps = completedSteps,
             totalSteps = totalSteps,
+            hasMainTask = hasMainTask,
             mainTaskId = mainTask?.id,
             mainTaskTitle = mainTaskTitle,
             mainTaskNextStep = mainTaskNextStep,
+            mainTaskQuadrant = mainTask?.quadrant ?: Quadrant.Q1,
+            mainTaskSource = mainTask?.source ?: TaskSource.MANUAL,
+            mainTaskCompletedSteps = mainTaskCompletedSteps,
+            mainTaskTotalSteps = mainTaskTotalSteps,
+            mainTaskPomodoroCount = mainTaskPomodoroCount,
             isMainTaskChecked = mainTask?.isCompleted ?: false,
             mainTaskFirstIncompleteSubtaskId = nextIncompleteSubtask?.id,
+            mainTaskLastCompletedSubtaskId = lastCompletedSubtask?.id,
             currentHour = LocalTime.now(clock).hour
         )
     }.stateIn(
@@ -166,23 +192,25 @@ class HomeViewModel(
         viewModelScope.launch {
             val state = uiState.value
             val taskId = state.mainTaskId ?: return@launch
-            val subtaskId = state.mainTaskFirstIncompleteSubtaskId
+            val subtaskIdToComplete = state.mainTaskFirstIncompleteSubtaskId
+            val lastDoneSubtaskId = state.mainTaskLastCompletedSubtaskId
 
-            if (subtaskId != null) {
-                taskRepository.toggleSubtask(subtaskId, true)
+            if (subtaskIdToComplete != null) {
+                // Centang langkah berikutnya
+                taskRepository.toggleSubtask(subtaskIdToComplete, true)
+            } else if (state.mainTaskTotalSteps > 0 && lastDoneSubtaskId != null) {
+                // Semua langkah sudah selesai, batalkan centang langkah terakhir
+                taskRepository.toggleSubtask(lastDoneSubtaskId, false)
             } else {
-                val task = taskRepository.getTaskById(taskId).first()
-                if (task != null && task.subtasks.isNotEmpty()) {
-                    val lastDone = task.subtasks.lastOrNull { it.isCompleted }
-                    if (lastDone != null) {
-                        taskRepository.toggleSubtask(lastDone.id, false)
-                    }
-                }
+                // Tugas mandiri tanpa subtask
+                taskRepository.toggleTaskCompletion(taskId, !state.isMainTaskChecked)
             }
         }
     }
 
     companion object {
+        private const val DEFAULT_GUEST_ID = "user_guest_local"
+
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as FokusCuyApplication

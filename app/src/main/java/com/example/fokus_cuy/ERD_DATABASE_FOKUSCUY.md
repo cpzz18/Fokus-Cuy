@@ -180,7 +180,7 @@ Berdasarkan audit keamanan dan performa, berikut penyesuaian dari skema awal:
 | `created_at` | `INTEGER` | Epoch millis |
 
 *Indeks:*
-- `focus_sessions_user_id_started_at`: untuk kalkulasi streak dan agregat durasi mingguan.
+- `focus_sessions_user_id_status_started_at`: untuk pencarian running session (LIMIT 1), kalkulasi streak, dan agregat durasi range seek.
 - `focus_sessions_task_id`: indeks FK relasi task.
 - `focus_sessions_subtask_id`: indeks FK relasi subtask.
 

@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 2,
-    "identityHash": "518524e520bb57518d3129db4391d9b1",
+    "identityHash": "fae13dde369dcb9dcdfd132d2eaa53a0",
     "entities": [
       {
         "tableName": "users",
@@ -378,14 +378,15 @@
         },
         "indices": [
           {
-            "name": "index_focus_sessions_user_id_started_at",
+            "name": "index_focus_sessions_user_id_status_started_at",
             "unique": false,
             "columnNames": [
               "user_id",
+              "status",
               "started_at"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_focus_sessions_user_id_started_at` ON `${TABLE_NAME}` (`user_id`, `started_at`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_focus_sessions_user_id_status_started_at` ON `${TABLE_NAME}` (`user_id`, `status`, `started_at`)"
           },
           {
             "name": "index_focus_sessions_task_id",
@@ -575,7 +576,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '518524e520bb57518d3129db4391d9b1')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'fae13dde369dcb9dcdfd132d2eaa53a0')"
     ]
   }
 }

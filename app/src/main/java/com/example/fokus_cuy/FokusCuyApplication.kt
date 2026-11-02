@@ -41,7 +41,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     override val focusSessionRepository: FocusSessionRepository by lazy {
-        FocusSessionRepositoryImpl(database)
+        FocusSessionRepositoryImpl(database, clock)
     }
 
     override val distractionRepository: DistractionRepository by lazy {

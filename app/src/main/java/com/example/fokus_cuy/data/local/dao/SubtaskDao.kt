@@ -35,6 +35,9 @@ interface SubtaskDao {
     @Upsert
     suspend fun upsertSubtask(subtask: SubtaskEntity)
 
+    @Upsert
+    suspend fun upsertSubtasks(subtasks: List<SubtaskEntity>)
+
     @Query(
         """
         UPDATE subtasks 
@@ -60,20 +63,10 @@ interface SubtaskDao {
 
     @Query(
         """
-        SELECT COUNT(*) FROM subtasks 
-        WHERE task_id = :taskId 
-          AND deleted_at IS NULL 
-          AND is_completed = 0
+        UPDATE subtasks 
+        SET deleted_at = :deletedAt, updated_at = :updatedAt 
+        WHERE task_id = :taskId AND deleted_at IS NULL
         """
     )
-    suspend fun countOpenSubtasks(taskId: String): Int
-
-    @Query(
-        """
-        SELECT COUNT(*) FROM subtasks 
-        WHERE task_id = :taskId 
-          AND deleted_at IS NULL
-        """
-    )
-    suspend fun countTotalSubtasks(taskId: String): Int
+    suspend fun softDeleteSubtasksByTaskId(taskId: String, deletedAt: Long, updatedAt: Long)
 }

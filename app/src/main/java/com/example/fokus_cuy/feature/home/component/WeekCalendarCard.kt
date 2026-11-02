@@ -72,7 +72,7 @@ fun WeekCalendarCard(
                 val bg by animateColorAsState(
                     targetValue = when {
                         isSelected -> Sunburst
-                        index == 1 -> Vanilla
+                        day.isToday -> Vanilla
                         else -> Color.Transparent
                     },
                     animationSpec = tween(240),

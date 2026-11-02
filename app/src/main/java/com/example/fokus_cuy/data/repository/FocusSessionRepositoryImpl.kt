@@ -7,11 +7,13 @@ import com.example.fokus_cuy.domain.model.FocusSession
 import com.example.fokus_cuy.domain.repository.FocusSessionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.time.Clock
 import java.time.LocalDate
 import java.util.UUID
 
 class FocusSessionRepositoryImpl(
     database: AppDatabase,
+    private val clock: Clock = Clock.systemDefaultZone(),
     private val idGenerator: () -> String = { UUID.randomUUID().toString() }
 ) : FocusSessionRepository {
 
@@ -39,6 +41,9 @@ class FocusSessionRepositoryImpl(
     }
 
     override fun observeTodayFocusMinutes(userId: String, today: LocalDate): Flow<Int> {
-        return focusSessionDao.observeFocusMinutesForDate(userId, today.toString())
+        val zone = clock.zone
+        val startOfDayMillis = today.atStartOfDay(zone).toInstant().toEpochMilli()
+        val endOfDayMillis = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        return focusSessionDao.observeFocusMinutesForDateRange(userId, startOfDayMillis, endOfDayMillis)
     }
 }

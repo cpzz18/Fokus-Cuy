@@ -43,6 +43,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE id = :taskId AND deleted_at IS NULL LIMIT 1")
     suspend fun getTaskById(taskId: String): TaskWithSubtasks?
 
+    @Query("SELECT EXISTS(SELECT 1 FROM tasks WHERE user_id = :userId LIMIT 1)")
+    suspend fun hasAnyTask(userId: String): Boolean
+
     @Upsert
     suspend fun upsertTask(task: TaskEntity)
 
@@ -68,4 +71,23 @@ interface TaskDao {
         completedAt: Long?,
         updatedAt: Long
     )
+
+    @Query(
+        """
+        UPDATE tasks
+        SET is_completed = CASE
+                WHEN EXISTS (SELECT 1 FROM subtasks WHERE task_id = :taskId AND deleted_at IS NULL)
+                 AND NOT EXISTS (SELECT 1 FROM subtasks WHERE task_id = :taskId AND deleted_at IS NULL AND is_completed = 0)
+                THEN 1 ELSE 0
+            END,
+            completed_at = CASE
+                WHEN EXISTS (SELECT 1 FROM subtasks WHERE task_id = :taskId AND deleted_at IS NULL)
+                 AND NOT EXISTS (SELECT 1 FROM subtasks WHERE task_id = :taskId AND deleted_at IS NULL AND is_completed = 0)
+                THEN :now ELSE NULL
+            END,
+            updated_at = :now
+        WHERE id = :taskId
+        """
+    )
+    suspend fun syncTaskCompletionFromSubtasks(taskId: String, now: Long)
 }

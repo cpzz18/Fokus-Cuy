@@ -24,8 +24,7 @@ object DebugDatabaseSeeder {
         val today = LocalDate.now(clock)
         val todayStr = today.toString()
 
-        val existingTasks = taskRepository.observeTasksByDate(userId, todayStr).first()
-        if (existingTasks.isNotEmpty()) {
+        if (taskRepository.hasAnyTask(userId)) {
             return
         }
 

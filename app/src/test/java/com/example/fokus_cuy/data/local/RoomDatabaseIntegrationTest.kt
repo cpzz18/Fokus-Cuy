@@ -34,6 +34,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.time.Clock
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 
 @RunWith(RobolectricTestRunner::class)
@@ -54,7 +55,7 @@ class RoomDatabaseIntegrationTest {
             .build()
 
         taskRepository = TaskRepositoryImpl(db, fixedClock)
-        focusSessionRepository = FocusSessionRepositoryImpl(db)
+        focusSessionRepository = FocusSessionRepositoryImpl(db, fixedClock)
         distractionRepository = DistractionRepositoryImpl(db, fixedClock)
     }
 
@@ -124,6 +125,93 @@ class RoomDatabaseIntegrationTest {
 
         val afterDeleteList = taskRepository.observeTasksByDate("u1", "2026-11-02").first()
         assertEquals(0, afterDeleteList.size)
+    }
+
+    @Test
+    fun testDeleteTaskSoftDeletesAllSubtasksInOneGo() = runBlocking {
+        val user = UserEntity(
+            id = "u1",
+            name = "User 1",
+            authProvider = AuthProvider.GUEST.name,
+            targetDailyMinutes = 100,
+            soundFxEnabled = true,
+            createdAt = 1000L,
+            updatedAt = 1000L
+        )
+        db.userDao().upsertUser(user)
+
+        val task = Task(
+            id = "t_bulk",
+            userId = "u1",
+            title = "Bulk Task",
+            scheduledDate = "2026-11-02",
+            subtasks = listOf(
+                Subtask(id = "sub_1", taskId = "t_bulk", title = "Step 1"),
+                Subtask(id = "sub_2", taskId = "t_bulk", title = "Step 2")
+            )
+        )
+        taskRepository.upsertTask(task)
+
+        val subsBefore = db.subtaskDao().getSubtasksByTaskId("t_bulk")
+        assertEquals(2, subsBefore.size)
+
+        taskRepository.deleteTask("t_bulk")
+
+        val subsAfter = db.subtaskDao().getSubtasksByTaskId("t_bulk")
+        assertEquals(0, subsAfter.size)
+    }
+
+    @Test
+    fun testToggleTaskWithoutSubtask() = runBlocking {
+        val user = UserEntity(
+            id = "u1",
+            name = "User 1",
+            authProvider = AuthProvider.GUEST.name,
+            targetDailyMinutes = 100,
+            soundFxEnabled = true,
+            createdAt = 1000L,
+            updatedAt = 1000L
+        )
+        db.userDao().upsertUser(user)
+
+        val standaloneTask = Task(
+            id = "t_standalone",
+            userId = "u1",
+            title = "Belanja Buku",
+            isCompleted = false
+        )
+        taskRepository.upsertTask(standaloneTask)
+
+        taskRepository.toggleTaskCompletion("t_standalone", true)
+        val completedTask = taskRepository.getTaskById("t_standalone").first()
+        assertNotNull(completedTask)
+        assertTrue(completedTask!!.isCompleted)
+        assertNotNull(completedTask.completedAt)
+
+        taskRepository.toggleTaskCompletion("t_standalone", false)
+        val reopenedTask = taskRepository.getTaskById("t_standalone").first()
+        assertNotNull(reopenedTask)
+        assertFalse(reopenedTask!!.isCompleted)
+        assertNull(reopenedTask.completedAt)
+    }
+
+    @Test
+    fun testHasAnyTaskReturnsTrueOnlyWhenTaskExists() = runBlocking {
+        assertFalse(taskRepository.hasAnyTask("u_empty"))
+
+        val user = UserEntity(
+            id = "u_empty",
+            name = "User Empty",
+            authProvider = AuthProvider.GUEST.name,
+            targetDailyMinutes = 100,
+            soundFxEnabled = true,
+            createdAt = 1000L,
+            updatedAt = 1000L
+        )
+        db.userDao().upsertUser(user)
+
+        taskRepository.upsertTask(Task(id = "t_has", userId = "u_empty", title = "Task 1"))
+        assertTrue(taskRepository.hasAnyTask("u_empty"))
     }
 
     @Test
@@ -210,6 +298,36 @@ class RoomDatabaseIntegrationTest {
 
         val noMoreRunning = focusSessionRepository.findRunningSession("u1").first()
         assertNull(noMoreRunning)
+    }
+
+    @Test
+    fun testObserveTodayFocusMinutesWithDateRange() = runBlocking {
+        val user = UserEntity(
+            id = "u1",
+            name = "User 1",
+            authProvider = AuthProvider.GUEST.name,
+            targetDailyMinutes = 100,
+            soundFxEnabled = true,
+            createdAt = 1000L,
+            updatedAt = 1000L
+        )
+        db.userDao().upsertUser(user)
+
+        val today = LocalDate.of(2026, 11, 2)
+        val sessionToday = FocusSession(
+            id = "fs_today",
+            userId = "u1",
+            mode = FocusMode.POMODORO,
+            plannedDurationSec = 1500,
+            actualDurationSec = 3000, // 50 menit
+            status = FocusStatus.COMPLETED,
+            startedAt = fixedClock.millis(),
+            endedAt = fixedClock.millis() + 3000_000L
+        )
+        focusSessionRepository.startSession(sessionToday)
+
+        val minutes = focusSessionRepository.observeTodayFocusMinutes("u1", today).first()
+        assertEquals(50, minutes)
     }
 
     @Test

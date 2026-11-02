@@ -40,8 +40,13 @@ interface FocusSessionDao {
         WHERE user_id = :userId 
           AND status = 'COMPLETED' 
           AND mode != 'BREAK' 
-          AND date(started_at / 1000, 'unixepoch', 'localtime') = :dateString
+          AND started_at >= :startOfDayMillis 
+          AND started_at < :endOfDayMillis
         """
     )
-    fun observeFocusMinutesForDate(userId: String, dateString: String): Flow<Int>
+    fun observeFocusMinutesForDateRange(
+        userId: String,
+        startOfDayMillis: Long,
+        endOfDayMillis: Long
+    ): Flow<Int>
 }
